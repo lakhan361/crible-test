@@ -1,0 +1,56 @@
+
+HEC configuration: 
+What HEC actually is
+
+HEC (HTTP Event Collector) = an HTTP(S) endpoint that receives logs/events.
+
+It requires:
+
+A listening HTTP server (port 8088 by default).
+    Token authentication.
+    Optional SSL/TLS certs.
+
+In Splunk world, HEC only exists on:
+    Splunk Enterprise
+    Heavy Forwarder
+    Or Cribl Stream Worker (acting as a HEC-compatible receiver).
+
+
+
+What Splunk UF can (and cannot) do
+    Splunk Universal Forwarder (UF) is very lightweight.
+
+    ✅ Can:
+
+    Monitor files, directories, syslog, etc.
+    Forward events to another Splunk instance, Heavy Forwarder, or HTTP/HEC destination.
+
+    ❌ Cannot:
+
+    Host or expose its own HEC input (there is no /services/data/inputs/http endpoint in UF).
+    Process pipelines, filters, or transformations beyond basic parsing.
+
+
+
+So when your Ansible role tried:
+    POST /services/data/inputs/http ...
+    UF replied with 404 Not Found because it doesn’t have that endpoint.
+
+
+Why HEC goes on the Cribl Worker
+    Cribl Worker is built to ingest events via many sources (including Splunk HEC).
+    It runs a full HTTP server, so it can expose port 8088, manage tokens, and authenticate requests.
+    Once Cribl ingests via HEC, it can:
+    Route events to multiple destinations (Splunk, S3, Elasticsearch, Kafka, …).
+    Apply pipelines (filter, mask, enrich, drop, transform).
+
+In short:
+    Cribl Worker = HEC input (receiver).
+    Splunk UF = HEC output (sender/forwarder).
+
+✅ Bottom line:
+    UF is a “shipper” → monitors local logs, forwards them.
+    Cribl Worker is a “collector” → receives logs via HEC and does the heavy lifting.
+
+
+
