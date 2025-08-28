@@ -1,0 +1,49 @@
+services:
+  cribl-leader:
+    image: cribl/cribl:latest
+    container_name: cribl-leader
+    environment:
+      - CRIBL_DIST_MODE=leader
+    ports:
+      - "19000:9000"
+    volumes:
+      - cribl-config:/opt/cribl/config-volume
+
+  cribl-worker:
+    image: cribl/cribl:latest
+    container_name: cribl-worker
+    depends_on:
+      - cribl-leader
+    environment:
+      - CRIBL_DIST_MODE=worker
+      - CRIBL_DIST_LEADER_URL=tcp://criblmaster@cribl-leader:4200
+    ports:
+      - "8088:8088"
+      - "9001:9000"
+    volumes:
+      - cribl-worker-state:/opt/cribl/state
+
+  splunk-uf:
+    image: splunk/universalforwarder:9.3.0
+    container_name: splunk-uf
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=Changed@123
+    volumes:
+      - ./uf-app:/opt/splunkforwarder/etc/apps/ironstream_to_cribl
+      - ./logs:/var/log/ironstream
+    depends_on:
+      - cribl-worker
+
+  log-writer:
+    image: alpine:3.20
+    container_name: log-writer
+    command: /bin/sh -c "while true; do date '+%Y-%m-%d %H:%M:%S.000 INFO test log' >> /logs/app.log; sleep 2; done"
+    volumes:
+      - ./logs:/logs
+    depends_on:
+      - splunk-uf
+
+volumes:
+  cribl-config:
+  cribl-worker-state:
