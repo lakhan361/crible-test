@@ -1,0 +1,78 @@
+Configuring Splunk UF -> Cribl Worker HEC for File Monitoring
+Folder structure inside the package
+-----------------------------------
+uf-app/local/
+- inputs.conf
+- props.conf
+- transforms.conf
+- outputs.conf
+1) inputs.conf : choose which file(s) to monitor
+------------------------------------------------
+Example:
+[monitor:///var/log/tt/app.log]
+sourcetype = ironstream:app
+index = ironstream
+disabled = false
+followTail = 0
+ignoreOlderThan = 7d
+crcSalt = <SOURCE>
+Change here:
+- Replace path with your log file absolute path.
+- Example:
+[monitor:///opt/myapp/logs/server.log]
+sourcetype = myapp:server
+index = myapp_index
+2) props.conf : sourcetype parsing
+-----------------------------------
+Example:
+[tt:app]
+SHOULD_LINEMERGE = false
+TRUNCATE = 100000
+TIME_FORMAT = %Y-%m-%d %H:%M:%S.%3N
+MAX_TIMESTAMP_LOOKAHEAD = 40
+TRANSFORMS-route = route_to_cribl_httpout
+Change here:
+- Make stanza match sourcetype from inputs.conf.
+- Adjust TIME_FORMAT if different.
+Example for myapp logs:
+[myapp:server]
+SHOULD_LINEMERGE = false
+TIME_FORMAT = %Y-%m-%d %H:%M:%S
+MAX_TIMESTAMP_LOOKAHEAD = 25
+TRANSFORMS-route = route_to_cribl_httpout
+3) transforms.conf : routing
+-----------------------------
+No change needed. Routes everything to Cribl HEC.
+[route_to_cribl_httpout]
+REGEX = .*
+DEST_KEY = _HTTP_ROUTING
+FORMAT = cribl
+4) outputs.conf : where UF sends logs
+--------------------------------------
+[httpout:cribl]
+server = host.docker.internal:8088
+token = <PASTE_CRIBL_HEC_TOKEN>
+useSSL = false
+sslVerifyServerCert = false
+useACK = false
+maxQueueSize = 1024KB
+Change only if:
+- Cribl Worker host/IP changes.
+- New HEC token is issued.
+5) Restart UF after changes
+-----------------------------
+docker compose restart splunk-uf
+Example: Monitor /opt/myapp/logs/server.log
+-------------------------------------------
+inputs.conf:
+[monitor:///opt/myapp/logs/server.log]
+sourcetype = myapp:server
+index = myapp_index
+disabled = false
+props.conf:
+[myapp:server]
+SHOULD_LINEMERGE = false
+TIME_FORMAT = %Y-%m-%d %H:%M:%S
+MAX_TIMESTAMP_LOOKAHEAD = 25
+TRANSFORMS-route = route_to_cribl_httpout
+Leave transforms.conf and outputs.conf as-is.
